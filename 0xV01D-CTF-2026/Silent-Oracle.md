@@ -1,4 +1,4 @@
-# Silent Oracle — 0xV01D CTF 2026
+# Silent Oracle - 0xV01D CTF 2026
 
 > *A quiet internal directory exposes only a small public surface. The useful answers are hidden behind how the service thinks about people and roles.*
 
@@ -18,7 +18,7 @@ A small internal directory exposed a GraphQL endpoint vulnerable to introspectio
 
 On visiting the site, it revealed:
 
-> *Shadow Directory — A small internal directory exposed a GraphQL endpoint. The public fields look harmless.*
+> *Shadow Directory - A small internal directory exposed a GraphQL endpoint. The public fields look harmless.*
 
 The page had a query editor pre-loaded with:
 
@@ -62,7 +62,7 @@ query {
   }
 }
 ```
-Returned: `"Cannot query field 'x' on type 'User'."` for each extra field — confirming no hidden fields exposed through the schema.
+Returned: `"Cannot query field 'x' on type 'User'."` for each extra field - confirming no hidden fields exposed through the schema.
 
 **Searching for common strings:**
 ```graphql
@@ -78,7 +78,7 @@ query {
   users(search: "") { id username displayName role bio }
 }
 ```
-This returned a 4th user that wasn't in the original results — `Guest User` with role `viewer`. Useful for understanding the full user set.
+This returned a 4th user that wasn't in the original results - `Guest User` with role `viewer`. Useful for understanding the full user set.
 
 ---
 
@@ -112,7 +112,7 @@ Everything pointed back to the `search` parameter on `users`.
 
 ## The Exploit
 
-### Step 1 — SQL Injection Confirmation
+### Step 1 - SQL Injection Confirmation
 
 ```graphql
 query {
@@ -122,11 +122,11 @@ query {
 }
 ```
 
-All 4 users returned — confirming the search parameter is vulnerable to SQL injection. Input is passed directly to the database without sanitization.
+All 4 users returned - confirming the search parameter is vulnerable to SQL injection. Input is passed directly to the database without sanitization.
 
 ---
 
-### Step 2 — UNION-based Injection
+### Step 2 - UNION-based Injection
 
 With 5 known GraphQL fields, I tested a UNION payload with 5 columns:
 
@@ -138,7 +138,7 @@ query {
 }
 ```
 
-Injected values `1,2,3,4,5` appeared in the response — UNION injection confirmed.
+Injected values `1,2,3,4,5` appeared in the response - UNION injection confirmed.
 
 **Column Mapping:**
 
@@ -152,7 +152,7 @@ Injected values `1,2,3,4,5` appeared in the response — UNION injection confirm
 
 ---
 
-### Step 3 — Database Enumeration
+### Step 3 - Database Enumeration
 
 Tried MySQL's `information_schema.tables` first:
 
@@ -160,9 +160,9 @@ Tried MySQL's `information_schema.tables` first:
 users(search: "' UNION SELECT 1,table_name,3,4,5 FROM information_schema.tables-- -")
 ```
 
-Error: `"no such table: information_schema.tables"` — this is **SQLite**, not MySQL.
+Error: `"no such table: information_schema.tables"` - this is **SQLite**, not MySQL.
 
-SQLite equivalent — `sqlite_master`:
+SQLite equivalent - `sqlite_master`:
 
 ```graphql
 query {
@@ -176,7 +176,7 @@ query {
 
 ---
 
-### Step 4 — Schema Extraction
+### Step 4 - Schema Extraction
 
 Extracted the `audit_log` schema:
 
@@ -192,7 +192,7 @@ CREATE TABLE audit_log (
 )
 ```
 
-Dumped its contents — found deployment events but no flag.
+Dumped its contents - found deployment events but no flag.
 
 Extracted the `users` table schema:
 
@@ -215,7 +215,7 @@ A `secret` column exists that was never exposed through the GraphQL API.
 
 ---
 
-### Step 5 — Flag Extraction
+### Step 5 - Flag Extraction
 
 ```graphql
 query {
@@ -240,29 +240,29 @@ no secrets here
 
 ## Techniques Used
 
-1. **GraphQL Introspection** — mapped the full API schema to identify available types and fields
-2. **SQL Injection via GraphQL search parameter** — user input passed unsanitized to the database
-3. **Database fingerprinting** — identified SQLite from the `information_schema` error
-4. **SQLite schema enumeration** — used `sqlite_master` to list tables and extract CREATE statements
-5. **UNION-based data extraction** — pulled data from columns not exposed by the GraphQL layer
+1. **GraphQL Introspection** - mapped the full API schema to identify available types and fields
+2. **SQL Injection via GraphQL search parameter** - user input passed unsanitized to the database
+3. **Database fingerprinting** - identified SQLite from the `information_schema` error
+4. **SQLite schema enumeration** - used `sqlite_master` to list tables and extract CREATE statements
+5. **UNION-based data extraction** - pulled data from columns not exposed by the GraphQL layer
 
 ---
 
 ## Real World Impact
 
-In a real application, a GraphQL endpoint with an unsanitized search parameter could expose an entire user database including credentials, private tokens, and sensitive account data. An attacker could enumerate all users, extract password hashes, or retrieve API keys — all without authentication. The gap between what the GraphQL schema exposes and what the database actually contains is a critical blind spot developers often miss.
+In a real application, a GraphQL endpoint with an unsanitized search parameter could expose an entire user database including credentials, private tokens, and sensitive account data. An attacker could enumerate all users, extract password hashes, or retrieve API keys - all without authentication. The gap between what the GraphQL schema exposes and what the database actually contains is a critical blind spot developers often miss.
 
 ---
 
 ## Lessons Learned
 
-1. GraphQL introspection is a powerful recon tool — always try it before assuming the schema is complete
+1. GraphQL introspection is a powerful recon tool - always try it before assuming the schema is complete
 2. What the GraphQL schema exposes and what the database contains are not always the same thing
-3. When `information_schema` fails, think about database fingerprinting — SQLite, PostgreSQL, and Oracle all have different system tables
+3. When `information_schema` fails, think about database fingerprinting - SQLite, PostgreSQL, and Oracle all have different system tables
 4. Hidden columns like `secret` are invisible at the API layer but fully accessible via UNION injection
-5. SQLi is absolutely possible through GraphQL — the transport layer doesn't protect against it
+5. SQLi is absolutely possible through GraphQL - the transport layer doesn't protect against it
 6. An empty string search returning more results than a specific search is a signal worth investigating
-7. Not every dead end is a dead end — the `about` field went nowhere, but going back to `search` found the vulnerability
+7. Not every dead end is a dead end - the `about` field went nowhere, but going back to `search` found the vulnerability
 
 ---
 
