@@ -124,18 +124,18 @@ At score 44, I queued two `POST /api/shoot` requests in a Burp group tab using t
 **Request 1 response:**
 ```json
 {
-  "flag": "boroCTF{KN!CK5_1N_5555!!!!!}",
-  "message": "BRUNSON WITH 45! THE GARDEN IS ELECTRIC!",
-  "score": 46
+  "message": "REFEREE TIMEOUT! The refs saw Brunson approaching 45 - Wembanyama gets 10 free throws. Score WIPED.",
+  "rigged": true,
+  "score": 0
 }
 ```
 
 **Request 2 response:**
 ```json
 {
-  "message": "REFEREE TIMEOUT! The refs saw Brunson approaching 45 - Wembanyama gets 10 free throws. Score WIPED.",
-  "rigged": true,
-  "score": 0
+  "flag": "boroCTF{KN!CK5_1N_5555!!!!!}",
+  "message": "BRUNSON WITH 45! THE GARDEN IS ELECTRIC!",
+  "score": 46
 }
 ```
 
