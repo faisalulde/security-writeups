@@ -180,11 +180,11 @@ TOCTOU race conditions are a well-documented vulnerability class in financial an
 
 ## Lessons Learned
 
-1. When a value can only take certain states through normal interaction (here, only even numbers), and the target state is impossible to reach normally, that's a strong signal the intended bypass lies outside normal request flow - not in the value itself
-2. Client-side-only enforcement (like the cooldown timer here) is a clue, not a guarantee - always verify whether timing, rate limits, or sequencing are actually enforced server-side
-3. Burp Suite's "Send group in parallel" feature is the standard tool for testing race conditions - queuing identical requests and firing them simultaneously is often enough to expose non-atomic state handling
-4. Race conditions don't always succeed on the first attempt - increasing the number of concurrent requests increased the success rate here (5/6 vs 1/2), since more simultaneous reads increase the odds of overlapping the vulnerable window
-5. Ruling out simpler attacks systematically (parameter tampering, body manipulation) before pursuing a more complex technique like a race condition is good methodology - it narrows the actual vulnerability class with evidence rather than guesswork
+1. The score could only ever be an even number (0, 2, 4... 44, 46), so it could never land exactly on 45 - the number needed to win. Since the target number was mathematically impossible to reach through normal clicking, that was a sign the bug wasn't about the number itself, but about how and when requests were being sent to the server
+2. Just because something looks enforced (like the 1.5 second cooldown) doesn't mean it actually is - always check whether timing or limits are enforced on the server, not just in the browser
+3. Burp Suite's "Send group in parallel" feature is the standard way to test for race conditions - send the same request multiple times at once and see if the server handles them inconsistently
+4. Race conditions don't always work on the first try. Sending more requests at once increased my success rate (5 out of 6 worked, compared to 1 out of 2 earlier) - more simultaneous requests give a better chance of catching the server in that small window where the bug exists
+5. Ruling out simpler attacks first (changing parameters, editing the request body) before trying something more advanced like a race condition is good practice - it helps confirm what the actual bug is instead of guessing
 
 ---
 
